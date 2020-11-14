@@ -1,0 +1,110 @@
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.*;
+import org.apache.hadoop.hbase.client.*;
+import org.apache.hadoop.hbase.util.Bytes;
+ 
+import java.io.IOException;
+import java.util.Vector;
+public class ExampleForHBase {
+	
+	//连接数据库的必要函数
+    public static Configuration configuration;
+    public static Connection connection;
+    public static Admin admin;
+    //连接hbase数据库，将连接传给configuration、connection、admin
+    public static void init(){
+        configuration  = HBaseConfiguration.create();
+        configuration.set("hbase.rootdir","hdfs://localhost:9000/hbase");
+        try{
+            connection = ConnectionFactory.createConnection(configuration);
+            admin = connection.getAdmin();
+        }catch (IOException e){
+            e.printStackTrace();
+        }
+    }
+    
+    public static void main(String[] args)throws IOException{
+        init();
+        
+        createTable("register",new String[]{"information",});
+        Vector<data> datalist = new Vector<data>();
+        datalist.add(new ExampleForHBase().new data("information","id","20183749"));
+        datalist.add(new ExampleForHBase().new data("information","username","lilongrong"));
+        datalist.add(new ExampleForHBase().new data("information","sex","男"));
+
+        insertData("register","example",datalist);
+
+//        insertData("student","zhangsan","score","English","69");
+//        insertData("student","zhangsan","score","Math","86");
+//        insertData("student","zhangsan","score","Computer","77");
+//        getData("student", "zhangsan", "score","English");
+        close();
+        System.out.println("操作完成");
+    }
+    
+    //类似结构体，用来存储一行数据
+    public class data{
+    	String colFamily;
+    	String col;
+    	String val;
+    	public data(String colFamily,String col,String val) {
+    		this.colFamily=colFamily;
+    		this.col=col;
+    		this.val=val;
+    	}
+    }
+    
+
+    
+ //关闭数据库连接
+    public static void close(){
+        try{
+            if(admin != null){
+                admin.close();
+            }
+            if(null != connection){
+                connection.close();
+            }
+        }catch (IOException e){
+            e.printStackTrace();
+        }
+    }
+ 
+    //用于创建表，
+    public static void createTable(String myTableName,String[] colFamily) throws IOException {
+        TableName tableName = TableName.valueOf(myTableName);
+        if(admin.tableExists(tableName)){
+            System.out.println("talbe is exists!");
+        }else {
+            TableDescriptorBuilder tableDescriptor = TableDescriptorBuilder.newBuilder(tableName);
+            for(String str:colFamily){
+                ColumnFamilyDescriptor family = 
+ColumnFamilyDescriptorBuilder.newBuilder(Bytes.toBytes(str)).build();
+                tableDescriptor.setColumnFamily(family);
+            }
+            admin.createTable(tableDescriptor.build());
+        } 
+    }
+ 
+    //将data中的数据插入
+    public static void insertData(String tableName,String rowKey,Vector<data> datalist) throws IOException { 
+        Table table = connection.getTable(TableName.valueOf(tableName));
+        Put put = new Put(rowKey.getBytes());
+
+        for(data data:datalist) {
+        	put.addColumn(data.colFamily.getBytes(),data.col.getBytes(), data.val.getBytes() );
+        }
+        table.put(put);
+        table.close(); 
+    }
+ 
+    //获得数据
+    public static void getData(String tableName,String rowKey,String colFamily, String col)throws  IOException{ 
+        Table table = connection.getTable(TableName.valueOf(tableName));
+        Get get = new Get(rowKey.getBytes());
+        get.addColumn(colFamily.getBytes(),col.getBytes());
+        Result result = table.get(get);
+        System.out.println(new String(result.getValue(colFamily.getBytes(),col==null?null:col.getBytes())));
+        table.close(); 
+    }
+}
